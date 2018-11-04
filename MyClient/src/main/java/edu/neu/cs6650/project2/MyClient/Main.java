@@ -17,10 +17,10 @@ public class Main {
 		String port = "8080";
         //String path = "simple-service-webapp-updated/webapi/myresource";
         String path = "project2_server/webapi/myresource";
-        int maxThread = 64;
+        int maxThread = 10;
         int dayNum = 1;
         int userPopulation = 100000;
-        int numTestPerPhase = 100;
+        int numTestPerPhase = 10;
         int stepUpperBound = 5000;
         //Map<String, Integer> exception = new HashMap<>();
         
@@ -69,7 +69,13 @@ public class Main {
 			latencies.addAll(phase.getLatencies());
 			successRequestCount += phase.getSuccessCount();
 			totalRequestCount += phase.getTotalCount();
-			map.putAll(phase.getMap());
+			for (long key : phase.getMap().keySet()) {
+                if (!map.containsKey(key)) {
+                    map.put(key, phase.getMap().get(key));
+                } else {
+                    map.put(key, map.get(key) + phase.getMap().get(key));
+                }
+	        }
 		}
 		
 		writeToCSV(results);

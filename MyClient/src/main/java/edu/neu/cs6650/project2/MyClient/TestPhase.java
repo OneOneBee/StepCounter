@@ -74,6 +74,7 @@ public class TestPhase {
 		long startTime = System.currentTimeMillis();
 		
 		ExecutorService executorService = Executors.newFixedThreadPool(threadNum);
+//		Client client = ClientBuilder.newClient();
 		for (int i = 0; i < threadNum; ++i) {
 			Client client = ClientBuilder.newBuilder().build();
 			Request request = new Request(client, url, startTimeInterval, endTimeInterval,
@@ -93,7 +94,15 @@ public class TestPhase {
 		for (Request request : requests) {
 			results.addAll(request.getResults());
 			latencies.addAll(request.getLatencies());
-			map.putAll(request.getMap());
+//			map.putAll(request.getMap());
+			for (long key : request.getMap().keySet()) {
+                if (!map.containsKey(key)) {
+                    map.put(key, request.getMap().get(key));
+                } else {
+                    map.put(key, map.get(key) + request.getMap().get(key));
+                }
+            }
+
 			successRequestCount += request.getSuccessCount();
 		}
 		

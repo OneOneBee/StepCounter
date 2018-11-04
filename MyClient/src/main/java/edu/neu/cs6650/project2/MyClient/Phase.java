@@ -2,9 +2,14 @@ package edu.neu.cs6650.project2.MyClient;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-public class Phase
-{
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+
+public class Phase{
     private String phaseName;
     private String url;
     private int threadCount;
@@ -15,12 +20,12 @@ public class Phase
     private int userPopulation;
     private int stepUpperBound;
     
-    private List<Thread> threads;
     private long startTime;
     private long endTime;
     
     private int totalRequestCount;
     private int successRequestCount;
+    private List<TaskResult> results;
     private List<Long> requestTimes;
     
     
@@ -38,64 +43,61 @@ public class Phase
         this.stepUpperBound = stepUpperBound;
     }
 
-    public int getTotalRequestCount()
-    {
+    public int getTotalRequestCount() {
      
     	return this.totalRequestCount;
     }
 
-    public int getSuccessRequestCount()
-    {
+    public int getSuccessRequestCount() {
     	
     	return this.successRequestCount;
     }
 
-    public List<Long> getRequestTimes()
-    {
+    public List<TaskResult> getTaskResult() {
+    	return this.results;
+    }
+    
+    public List<Long> getRequestTimes() {
     	return this.requestTimes;
     }
 
-    public void run() {
-    	
-        threads = new ArrayList<Thread>();
-        requestTimes = new ArrayList<Long>();
-    	
-        startTime = System.currentTimeMillis();
-
+    public void run() throws InterruptedException {
         System.out.println(
                 String.format(
                         "%s phase : %d threads each performs POST/GET request for %d times",
                         phaseName, threadCount, numTestPerPhase * (endTimeInterval - startTimeInterval + 1)));
         
-        List<RequestTest> requestTests = new ArrayList<>();
+        results = new ArrayList<TaskResult>();
+        requestTimes = new ArrayList<Long>();
+        startTime = System.currentTimeMillis();
         
-        for (int time = this.startTimeInterval; time <= this.endTimeInterval; ++time) {
-        	for (int i = 0; i < this.threadCount; ++i) {
-        		RequestTest test = new RequestTest(url, this.userPopulation, time, this.dayNum, numTestPerPhase, stepUpperBound);
-        		requestTests.add(test);
-        		Thread thread = new Thread(test);
-        		threads.add(thread);
-        		thread.run();
-        	}
-        }
-        
-        // wait for all threads finish
-        for (Thread thread : threads) {
-            try {
-                thread.join();
-            } catch (Exception ex) {
-                System.out.println(ex.getMessage());
-            }
-        }
-        
-        for (RequestTest test : requestTests) {
-    		this.totalRequestCount += test.getTotalRequestCount();
-    		this.successRequestCount += test.getSuccessRequestCount();
-    		requestTimes.addAll(test.getRequestTimes());
-        }
+    	ExecutorService threadPool = Executors.newFixedThreadPool(threadCount);
+    	List<RequestTest> tests = new ArrayList<>();
+    	for (int i = 0; i < threadCount; ++i) {
+    		Client client = ClientBuilder.newClient();
+    		RequestTest requestTest = new RequestTest(url, client, userPopulation, dayNum, this.startTimeInterval, 
+    										this.endTimeInterval, numTestPerPhase, stepUpperBound);
+    		tests.add(requestTest);
+    		threadPool.submit(requestTest);
+    	}
+    										
+    	threadPool.shutdown();
+    	
+    	try {
+    		threadPool.awaitTermination(1, TimeUnit.DAYS);
+    	} catch (Exception e) {
+    		System.out.println(e.getMessage());
+    	}
 
         endTime = System.currentTimeMillis();
-
+        
+        for (RequestTest requestTest : tests) {
+            results.addAll(requestTest.getTaskResults());
+            requestTimes.addAll(requestTest.getRequestTimes());
+            this.totalRequestCount += requestTest.getTotalRequestCount();
+            this.successRequestCount += requestTest.getSuccessRequestCount();
+        }
+        
         System.out.println(
                 String.format(
                         "%s phase complete : Time %f seconds",

@@ -2,20 +2,20 @@ package edu.neu.cs6650.project2.MyClient;
 
 import java.io.FileWriter;
 import java.io.IOException;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.TreeMap;
 
 public class ClientRequest {
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
         String serverAddress = "ec2-34-211-205-139.us-west-2.compute.amazonaws.com";
         String port = "8080";
         String path = "simple-service-webapp-updated/webapi/myresource";
 
-        int maxThread = 64;
+        int maxThread = 32;
         int dayNum = 1;
         int userPopulation = 100000;
         int numTestPerPhase = 100;
@@ -55,12 +55,20 @@ public class ClientRequest {
 	          peak.getSuccessRequestCount() +
 	          cooldown.getSuccessRequestCount();
 	
-	    List<Long> requestTimes = new ArrayList<>();
+	    List<TaskResult> taskResults = new ArrayList<TaskResult>();
+	    List<Long> requestTimes = new ArrayList<Long>();
+	    
+	    taskResults.addAll(warmup.getTaskResult());
+	    taskResults.addAll(loading.getTaskResult());
+	    taskResults.addAll(peak.getTaskResult());
+	    taskResults.addAll(cooldown.getTaskResult());
+	    
 	    requestTimes.addAll(warmup.getRequestTimes());
 	    requestTimes.addAll(loading.getRequestTimes());
 	    requestTimes.addAll(peak.getRequestTimes());
 	    requestTimes.addAll(cooldown.getRequestTimes());
-	    writeToCSV(requestTimes);
+	    
+	    writeToCSV(taskResults);
 	    
 	    // Sort the request times for calculating statistics.
 	    Collections.sort(requestTimes);
@@ -77,27 +85,27 @@ public class ClientRequest {
 	}
 	
 	// write to CSV file
-	private static void writeToCSV(List<Long> requestTimes) {
-		
-		TreeMap<Long, Integer> map = new TreeMap<>();
-		for (Long time : requestTimes) {
-			if (!map.containsKey(time)) {
-				map.put(time,  1);
-			} else {
-				map.put(time, map.get(time) + 1);
-			}
-		}
+	private static void writeToCSV(List<TaskResult> results) {
 		
 		FileWriter fileWriter = null;
 		
 		try {
 			SimpleDateFormat sdf = new SimpleDateFormat("_yyyy_MM_dd_HH_mm_ss");
 			fileWriter = new FileWriter("requestTimes" + sdf.format(new Date()) + ".csv");
+			fileWriter.append("StartTime,EndTime,Latency,Success,RequestType,Content\n");
 			
-			for (Long time : map.keySet()) {
-				fileWriter.append(String.valueOf(time));
+			for (TaskResult result : results) {
+				fileWriter.append(String.valueOf(result.startTime));
 				fileWriter.append(",");
-				fileWriter.append(String.valueOf(map.get(time)));
+				fileWriter.append(String.valueOf(result.endTime));
+				fileWriter.append(",");
+				fileWriter.append(String.valueOf(result.endTime - result.startTime));
+				fileWriter.append(",");
+				fileWriter.append(String.valueOf(result.success));
+				fileWriter.append(",");
+				fileWriter.append(result.requestType);
+				fileWriter.append(",");
+				fileWriter.append(result.content);
 				fileWriter.append("\n");
 			}
 			
